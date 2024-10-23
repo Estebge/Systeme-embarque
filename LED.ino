@@ -125,9 +125,6 @@ void loop() {
     Serial.println("Erreur d'accès au GPS ou GPS non détecté");
   }
 
-
-  // Ajouter un léger délai pour ne pas saturer le moniteur série avec trop de messages
-  delay(2000); 
   erreur();
   
   // Lire une ligne complète de NMEA
@@ -166,15 +163,6 @@ void loop() {
   // Récupérer la date et l'heure actuelles du RTC
   DateTime now = rtc.now();
 
-  // Lire les données du capteur BME280
-  float temperature = bme.readTemperature();
-  float pressure = bme.readPressure() / 100.0F;  // en hPa
-  float humidity = bme.readHumidity();
-
-  // Lire la valeur du capteur de luminosité
-  int lightValue = analogRead(lightSensorPin);
-  float lightPercentage = (lightValue / 1023.0) * 100;
-
   // Écrire les données dans le fichier CSV
   dataFile = SD.open("data.csv", FILE_WRITE);
   if (dataFile) {
@@ -189,10 +177,10 @@ void loop() {
     dataFile.print(now.second(), DEC); dataFile.print("; ");
 
     // Écriture des données capteurs
-    dataFile.print(temperature); dataFile.print("C;");
-    dataFile.print(pressure); dataFile.print(" hPa;");
-    dataFile.print(humidity); dataFile.print("%;");
-    dataFile.print(lightPercentage); dataFile.println("%");
+    dataFile.print(bme.readTemperature()); dataFile.print("C;");
+    dataFile.print(bme.readPressure() / 100.0F); dataFile.print(" hPa;");
+    dataFile.print(bme.readHumidity()); dataFile.print("%;");
+    dataFile.print((analogRead(lightSensorPin) / 1023.0) * 100); dataFile.println("%");
 
     dataFile.close();  // Fermer le fichier pour sauvegarder les données
   } else {
