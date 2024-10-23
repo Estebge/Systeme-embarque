@@ -12,6 +12,11 @@ ChainableLED leds(5, 6, 1);
 #define lightSensorPin A0
 #define SD_CS_PIN 4  // Pin CS pour la carte SD
 
+bool SDecrit = true;
+bool SDpresente = true;
+
+SoftwareSerial gpsSerial(3, 4);  // Créer un port série logiciel pour le GPS
+
 Adafruit_BME280 bme;
 RTC_DS3231 rtc;
 File dataFile;
@@ -26,6 +31,12 @@ void erreur(){
   }
 
   // Impossible de trouver le GPS
+  while(!gpsSerial.available()){
+    leds.setColorRGB(0, 255, 0, 0);
+    delay(500);
+    leds.setColorRGB(0, 255, 255, 0);
+    delay(500);
+  }
 
   // Impossible de trouver le capteur BME280
   while(!bme.begin(0x76)){
@@ -38,8 +49,20 @@ void erreur(){
   // Incohérence des capteurs
 
   // Carte SD pleine
+  while(!SDecrit){
+    leds.setColorRGB(0, 255, 0, 0);
+    delay(500);
+    leds.setColorRGB(0, 255, 255, 255);
+    delay(500);
+  }
 
   // Impossible de trouver la carte SD
+  while(!SDpresente){
+    leds.setColorRGB(0, 255, 0, 0);
+    delay(500);
+    leds.setColorRGB(0, 255, 255, 255);
+    delay(1000);
+  }
   
   leds.setColorRGB(0, 0, 0, 0);
 }
@@ -47,7 +70,6 @@ void erreur(){
 void setup() {
   Serial.begin(9600);
   gpsSerial.begin(9600);
-  Serial.println("Vérification de la connexion du GPS...");
   Wire.begin();
 
   // Initialisation du module RTC
@@ -62,8 +84,7 @@ void setup() {
 
   // Initialisation de la carte SD
   if (!SD.begin(SD_CS_PIN)) {
-    Serial.println(F("Erreur : carte SD introuvable !"));
-    while (1);
+    SDpresente = false;
   }
   Serial.println("Carte SD initialisée avec succès.");
 
@@ -74,14 +95,40 @@ void setup() {
     dataFile.println(F("Date;Heure;Temp;Press;Hum;Lum;GPS"));
     dataFile.close();
   } else {
-    Serial.println(F("Erreur : ouverture du fichier data.csv échouée !"));
+    SDpresente = false;
   }
 }
 
 void loop() {
-  erreur();
+  if (gpsSerial.available()) {
+    String nmea = "";
+    
+    // Lire les données disponibles du GPS
+    while (gpsSerial.available()) {
+      char c = gpsSerial.read();
+      nmea += c;
+      
+      // Vérifier si une trame NMEA valide commence par '$'
+      if (nmea.startsWith("$")) {
+        Serial.println("Trame NMEA détectée : " + nmea);
+        
+        // Si la trame commence par GPGGA, alors c'est valide
+        if (nmea.startsWith("$GPGGA")) {
+          Serial.println("GPS présent et fonctionnel");
+        } else {
+          Serial.println("GPS présent mais pas encore de trame GPGGA");
+        }
+        nmea = "";  // Réinitialiser la chaîne pour la prochaine lecture
+      }
+    }
+  } else {
+    Serial.println("Erreur d'accès au GPS ou GPS non détecté");
+  }
 
-  String nmea = "";
+
+  // Ajouter un léger délai pour ne pas saturer le moniteur série avec trop de messages
+  delay(2000); 
+  erreur();
   
   // Lire une ligne complète de NMEA
   // while (Serial.available()) {
@@ -149,7 +196,7 @@ void loop() {
 
     dataFile.close();  // Fermer le fichier pour sauvegarder les données
   } else {
-    Serial.println(F("Erreur : écriture dans le fichier data.csv échouée !"));
+    SDecrit = false;
   }
 
   delay(2000);  // Pause de 2 secondes
