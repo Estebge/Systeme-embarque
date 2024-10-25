@@ -12,8 +12,23 @@ ChainableLED leds(5, 6, 1);
 #define lightSensorPin A0
 #define SD_CS_PIN 4  // Pin CS pour la carte SD
 
-bool SDecrit = true;
-bool SDpresente = true;
+//Initialisation variable capteur erreur
+#define NO_ERROR 0
+#define RTC_ERROR 1
+#define GPS_ERROR 2
+#define CAP_ERROR 3
+#define VAL_ERROR 4
+#define DATA_ERROR 5
+#define WRITE_ERROR 6
+
+//Initialisation variable mode
+#define STD 0
+#define ECO 1
+#define CFG 2
+#define MNT 3
+
+uint8_t error;
+uint8_t mode;
 
 SoftwareSerial gpsSerial(3, 4);  // Créer un port série logiciel pour le GPS
 
@@ -21,85 +36,54 @@ Adafruit_BME280 bme;
 RTC_DS3231 rtc;
 File dataFile;
 
-void erreur(){
-  // Impossible de trouver l'horloge
-  while(!rtc.begin()){
-    leds.setColorRGB(0, 255, 0, 0);
+void led(){
+  switch (error){
+    case RTC_ERROR : leds.setColorRGB(0, 255, 0, 0);
     delay(500);
     leds.setColorRGB(0, 0, 0, 255);
     delay(500);
-  }
-
-  // Impossible de trouver le GPS
-  while(!gpsSerial.available()){
-    leds.setColorRGB(0, 255, 0, 0);
+    break;
+    case GPS_ERROR : leds.setColorRGB(0, 255, 0, 0);
     delay(500);
     leds.setColorRGB(0, 255, 255, 0);
     delay(500);
-  }
-
-  // Impossible de trouver le capteur BME280
-  while(!bme.begin(0x76)){
-    leds.setColorRGB(0, 255, 0, 0);
+    break;
+    case CAP_ERROR : leds.setColorRGB(0, 255, 0, 0);
     delay(500);
-    leds.setColorRGB(0, 0, 255, 0);
+    leds.setColorRGB(0, 255, 255, 0);
     delay(500);
-  }
-
-  // Incohérence des capteurs
-
-  // Carte SD pleine
-  while(!SDecrit){
-    leds.setColorRGB(0, 255, 0, 0);
+    break;
+    case VAL_ERROR : leds.setColorRGB(0, 255, 0, 0);
     delay(500);
-    leds.setColorRGB(0, 255, 255, 255);
+    leds.setColorRGB(0, 255, 255, 0);
     delay(500);
-  }
-
-  // Impossible de trouver la carte SD
-  while(!SDpresente){
-    leds.setColorRGB(0, 255, 0, 0);
+    break;
+    case DATA_ERROR : leds.setColorRGB(0, 255, 0, 0);
     delay(500);
-    leds.setColorRGB(0, 255, 255, 255);
-    delay(1000);
-  }
-  
-  leds.setColorRGB(0, 0, 0, 0);
-}
-
-void setup() {
-  Serial.begin(9600);
-  gpsSerial.begin(9600);
-  Wire.begin();
-
-  // Initialisation du module RTC
-  if (!rtc.begin()) {
-    Serial.println(F("Erreur : RTC introuvable !"));
-    while (1);
-  }
-  
-  if (rtc.lostPower()) {
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Réglez à l'heure de compilation
-  }
-
-  // Initialisation de la carte SD
-  if (!SD.begin(SD_CS_PIN)) {
-    SDpresente = false;
-  }
-  Serial.println("Carte SD initialisée avec succès.");
-
-  // Création du fichier CSV s'il n'existe pas
-  dataFile = SD.open("data.csv", FILE_WRITE);
-  if (dataFile) {
-    Serial.println("Fichier ouvert avec succès.");
-    dataFile.println(F("Date;Heure;Temp;Press;Hum;Lum;GPS"));
-    dataFile.close();
-  } else {
-    SDpresente = false;
+    leds.setColorRGB(0, 255, 255, 0);
+    delay(500);
+    break;
+    case WRITE_ERROR : leds.setColorRGB(0, 255, 0, 0);
+    delay(500);
+    leds.setColorRGB(0, 255, 255, 0);
+    delay(500);
+    break;
+    default : 
+      switch(mode)
+      {
+        case STD : leds.setColorRGB(0, 0, 255, 0); 
+        break;
+        case ECO : leds.setColorRGB(0, 0, 0, 255); 
+        break;
+        case CFG : leds.setColorRGB(0, 255, 255, 0); 
+        break;
+        case MNT : leds.setColorRGB(0, 255, 125, 25); 
+        break;        
+      }
   }
 }
 
-void loop() {
+void Recup_data(){
   if (gpsSerial.available()) {
     String nmea = "";
     
@@ -122,10 +106,9 @@ void loop() {
       }
     }
   } else {
-    Serial.println("Erreur d'accès au GPS ou GPS non détecté");
+    error = GPS_ERROR;
   }
 
-  erreur();
   
   // Lire une ligne complète de NMEA
   // while (Serial.available()) {
@@ -184,8 +167,62 @@ void loop() {
 
     dataFile.close();  // Fermer le fichier pour sauvegarder les données
   } else {
-    SDecrit = false;
+    error = DATA_ERROR;
+  }
+}
+
+void standart(){
+  mode = STD;
+  Recup_data();
+  delay(1000);
+}
+
+void economique(){
+  mode = ECO;
+  Recup_data();
+  delay(2000);
+}
+
+void config(){
+  mode = CFG;
+}
+
+void maint(){
+  mode = MNT;
+}
+
+void setup() {
+  Serial.begin(9600);
+  gpsSerial.begin(9600);
+  Wire.begin();
+
+  // Initialisation du module RTC
+  if (!rtc.begin()) {
+    Serial.println(F("Erreur : RTC introuvable !"));
+    while (1);
+  }
+  
+  if (rtc.lostPower()) {
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Réglez à l'heure de compilation
   }
 
-  delay(2000);  // Pause de 2 secondes
+  // Initialisation de la carte SD
+  if (!SD.begin(SD_CS_PIN)) {
+    error = DATA_ERROR;
+  }
+  Serial.println("Carte SD initialisée avec succès.");
+
+  // Création du fichier CSV s'il n'existe pas
+  dataFile = SD.open("data.csv", FILE_WRITE);
+  if (dataFile) {
+    Serial.println("Fichier ouvert avec succès.");
+    dataFile.println(F("Date;Heure;Temp;Press;Hum;Lum;GPS"));
+    dataFile.close();
+  } else {
+    error = WRITE_ERROR;
+  }
+}
+
+void loop() {
+  standart();
 }
