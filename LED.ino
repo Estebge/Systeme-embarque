@@ -194,7 +194,7 @@ void Recup_data(){
   }
 }
 
-void standart(){
+void standard(){
   mode = STD;
   Recup_data();
   led();
@@ -225,15 +225,6 @@ void setup() {
   gpsSerial.begin(9600);
   Wire.begin();
 
-  startTime = millis();
-  while (millis() - startTime < 5000) {
-    etatBoutonRouge = digitalRead(boutonRougePin);
-    if (etatBoutonRouge == LOW) {
-      configuration();
-      dernierTempsAction = millis(); // Mettre à jour le dernier temps d'action
-    }
-  }
-
   // Initialisation de la carte SD
   if (!SD.begin(SD_CS_PIN)) {
     error = DATA_ERROR;
@@ -252,84 +243,13 @@ void setup() {
 }
 
 void loop() {
-  etatBoutonVert = digitalRead(boutonVertPin);
-  etatBoutonRouge = digitalRead(boutonRougePin);
-
-  // Gestion du mode "stand" par défaut
-  if (etatBoutonRouge == HIGH && etatBoutonVert == HIGH && mode == STD) {
-    standart();
-    mode = 0;
-  }
-
-  // Changement vers mode économique
-  if (mode == STD && etatBoutonVert == LOW) {
-    if (debutPressionVert == 0) {
-      debutPressionVert = millis();
-    } else if (millis() - debutPressionVert >= 5000) {
-      mode = CFG;
-      economique();
-      debutPressionVert = 0;
-      dernierTempsAction = millis(); // Mise à jour du temps d'action
-    }
-  }
-
-  // Retour en mode "stand" depuis mode économique
-  if (mode == CFG && etatBoutonVert == LOW) {
-    if (debutPressionVert0 == 0) {
-      debutPressionVert0 = millis();
-    } else if (millis() - debutPressionVert0 >= 5000) {
-      mode = 0;
-      standart();
-      debutPressionVert0 = 0;
-      dernierTempsAction = millis(); // Mise à jour du temps d'action
-    }
-  }
-
-  if (etatBoutonVert == HIGH) {
-    debutPressionVert = 0;
-    debutPressionVert0 = 0;
-  }
-
-  // Changement vers mode maintenance
-  if (mode == STD && etatBoutonRouge == LOW) {
-    if (debutPressionRouge0 == 0) {
-      debutPressionRouge0 = millis();
-    } else if (millis() - debutPressionRouge0 >= 5000) {
-      mode = MNT;
-      modeprec = STD;
-      maintenance();
-      debutPressionRouge0 = 0;
-      dernierTempsAction = millis(); // Mise à jour du temps d'action
-    }
-  }
-
-  // Retour depuis mode maintenance
-  if (mode == MNT && etatBoutonRouge == LOW) {
-    if (debutPressionRouge2 == 0) {
-      debutPressionRouge2 = millis();
-    } else if (millis() - debutPressionRouge2 >= 5000) {
-      if (modeprec == STD) {
-        mode = STD;
-        standart();
-        debutPressionRouge2 = 0;
-      } else if (modeprec == ECO) {
-        mode = ECO;
-        economique();
-        debutPressionRouge2 = 0;
-      }
-      dernierTempsAction = millis(); // Mise à jour du temps d'action
-    }
-  }
-
-  if (etatBoutonRouge == HIGH) {
-    debutPressionRouge0 = 0;
-    debutPressionRouge2 = 0;
-    debutPressionRouge3 = 0;
-  }
-
-  // Gestion du délai d'inactivité de 30 minute pour le mode configuration
-  if (mode == CFG && (millis() - dernierTempsAction > 5000)) {
-    mode = STD;
-    standart();
-  }
+  switch (mode){
+    case STD : standard();
+    break;
+    case ECO : economique();
+    break;
+    case CFG : configuration();
+    break;
+    case MNT : maintenance();
+    break;
 }
