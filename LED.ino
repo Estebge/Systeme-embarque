@@ -6,6 +6,9 @@
 #include <ChainableLED.h>
 #include <SoftwareSerial.h>
 
+#define boutonRougePin 3
+#define boutonVertPin  2
+
 ChainableLED leds(5, 6, 1);
 
 #define SEALEVELPRESSURE_HPA (1013.25)  // Pression au niveau de la mer standard
@@ -22,13 +25,20 @@ ChainableLED leds(5, 6, 1);
 #define WRITE_ERROR 6
 
 //Initialisation variable mode
-#define STD 0
-#define ECO 1
-#define CFG 2
-#define MNT 3
+#define INIT 0
+#define STD 1
+#define ECO 2
+#define CFG 3
+#define MNT 4
 
 uint8_t error;
 uint8_t mode;
+
+int etatBoutonRouge = HIGH;
+int etatBoutonVert = HIGH;
+
+uint8_t modeprec = 0; // 0 = standard, 1 = eco 
+unsigned long startTime = 0;
 
 SoftwareSerial gpsSerial(3, 4);  // Créer un port série logiciel pour le GPS
 
@@ -60,13 +70,13 @@ void led(){
     break;
     case DATA_ERROR : leds.setColorRGB(0, 255, 0, 0);
     delay(500);
-    leds.setColorRGB(0, 255, 255, 0);
+    leds.setColorRGB(0, 255, 255, 255);
     delay(500);
     break;
     case WRITE_ERROR : leds.setColorRGB(0, 255, 0, 0);
     delay(500);
-    leds.setColorRGB(0, 255, 255, 0);
-    delay(500);
+    leds.setColorRGB(0, 255, 255, 255);
+    delay(1000);
     break;
     default : 
       switch(mode)
@@ -84,6 +94,15 @@ void led(){
 }
 
 void Recup_data(){
+  error = NO_ERROR;
+  //Vérification présence horloge
+  if (!rtc.begin()) {
+    error = RTC_ERROR;
+  }
+  
+  if (rtc.lostPower()) {
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Réglez à l'heure de compilation
+  }
   if (gpsSerial.available()) {
     String nmea = "";
     
@@ -109,6 +128,10 @@ void Recup_data(){
     error = GPS_ERROR;
   }
 
+  //Vérification présence capteur
+  if (!bme.begin(0x76)){
+    error = CAP_ERROR;
+  }
   
   // Lire une ligne complète de NMEA
   // while (Serial.available()) {
@@ -174,36 +197,41 @@ void Recup_data(){
 void standart(){
   mode = STD;
   Recup_data();
+  led();
   delay(1000);
 }
 
 void economique(){
   mode = ECO;
   Recup_data();
+  led();
   delay(2000);
 }
 
-void config(){
+void configuration(){
   mode = CFG;
+  led();
 }
 
-void maint(){
+void maintenance(){
   mode = MNT;
+  led();
 }
 
 void setup() {
   Serial.begin(9600);
+  pinMode(boutonRougePin, INPUT_PULLUP);
+  pinMode(boutonVertPin, INPUT_PULLUP);
   gpsSerial.begin(9600);
   Wire.begin();
 
-  // Initialisation du module RTC
-  if (!rtc.begin()) {
-    Serial.println(F("Erreur : RTC introuvable !"));
-    while (1);
-  }
-  
-  if (rtc.lostPower()) {
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Réglez à l'heure de compilation
+  startTime = millis();
+  while (millis() - startTime < 5000) {
+    etatBoutonRouge = digitalRead(boutonRougePin);
+    if (etatBoutonRouge == LOW) {
+      configuration();
+      dernierTempsAction = millis(); // Mettre à jour le dernier temps d'action
+    }
   }
 
   // Initialisation de la carte SD
@@ -224,5 +252,84 @@ void setup() {
 }
 
 void loop() {
-  standart();
+  etatBoutonVert = digitalRead(boutonVertPin);
+  etatBoutonRouge = digitalRead(boutonRougePin);
+
+  // Gestion du mode "stand" par défaut
+  if (etatBoutonRouge == HIGH && etatBoutonVert == HIGH && mode == STD) {
+    standart();
+    mode = 0;
+  }
+
+  // Changement vers mode économique
+  if (mode == STD && etatBoutonVert == LOW) {
+    if (debutPressionVert == 0) {
+      debutPressionVert = millis();
+    } else if (millis() - debutPressionVert >= 5000) {
+      mode = CFG;
+      economique();
+      debutPressionVert = 0;
+      dernierTempsAction = millis(); // Mise à jour du temps d'action
+    }
+  }
+
+  // Retour en mode "stand" depuis mode économique
+  if (mode == CFG && etatBoutonVert == LOW) {
+    if (debutPressionVert0 == 0) {
+      debutPressionVert0 = millis();
+    } else if (millis() - debutPressionVert0 >= 5000) {
+      mode = 0;
+      standart();
+      debutPressionVert0 = 0;
+      dernierTempsAction = millis(); // Mise à jour du temps d'action
+    }
+  }
+
+  if (etatBoutonVert == HIGH) {
+    debutPressionVert = 0;
+    debutPressionVert0 = 0;
+  }
+
+  // Changement vers mode maintenance
+  if (mode == STD && etatBoutonRouge == LOW) {
+    if (debutPressionRouge0 == 0) {
+      debutPressionRouge0 = millis();
+    } else if (millis() - debutPressionRouge0 >= 5000) {
+      mode = MNT;
+      modeprec = STD;
+      maintenance();
+      debutPressionRouge0 = 0;
+      dernierTempsAction = millis(); // Mise à jour du temps d'action
+    }
+  }
+
+  // Retour depuis mode maintenance
+  if (mode == MNT && etatBoutonRouge == LOW) {
+    if (debutPressionRouge2 == 0) {
+      debutPressionRouge2 = millis();
+    } else if (millis() - debutPressionRouge2 >= 5000) {
+      if (modeprec == STD) {
+        mode = STD;
+        standart();
+        debutPressionRouge2 = 0;
+      } else if (modeprec == ECO) {
+        mode = ECO;
+        economique();
+        debutPressionRouge2 = 0;
+      }
+      dernierTempsAction = millis(); // Mise à jour du temps d'action
+    }
+  }
+
+  if (etatBoutonRouge == HIGH) {
+    debutPressionRouge0 = 0;
+    debutPressionRouge2 = 0;
+    debutPressionRouge3 = 0;
+  }
+
+  // Gestion du délai d'inactivité de 30 minute pour le mode configuration
+  if (mode == CFG && (millis() - dernierTempsAction > 5000)) {
+    mode = STD;
+    standart();
+  }
 }
