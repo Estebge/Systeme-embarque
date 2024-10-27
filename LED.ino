@@ -33,12 +33,13 @@ ChainableLED leds(5, 6, 1);
 
 uint8_t error;
 uint8_t mode;
+uint8_t mode_prec;
 
-int etatBoutonRouge = HIGH;
-int etatBoutonVert = HIGH;
+unsigned long startTime = millis();
 
-uint8_t modeprec = 0; // 0 = standard, 1 = eco 
-unsigned long startTime = 0;
+uint8_t etatBoutonR = HIGH;
+uint8_t etatBoutonV = HIGH;
+long t1Vert, t1Rouge;
 
 SoftwareSerial gpsSerial(3, 4);  // Créer un port série logiciel pour le GPS
 
@@ -87,9 +88,61 @@ void led(){
         break;
         case CFG : leds.setColorRGB(0, 255, 255, 0); 
         break;
-        case MNT : leds.setColorRGB(0, 255, 125, 25); 
+        case MNT : leds.setColorRGB(0, 255, 120, 0); 
         break;        
       }
+  }
+}
+
+void Boutonvert()
+{
+  if (etatBoutonV == HIGH) {
+    t1Vert = millis();
+    etatBoutonV = LOW;
+  }
+  else {
+    long t2 = millis();
+    long dureePression = t2-t1Vert;
+    if (dureePression > 5000){
+      if (mode == ECO){
+        mode = STD;
+      }
+      else{
+        mode = ECO;
+      }
+    }
+    etatBoutonV = HIGH;
+    t1Vert = 0;
+  }
+}
+
+void BoutonRouge(){
+  if (etatBoutonR == HIGH) {
+    t1Rouge = millis();
+    etatBoutonR = LOW;
+  }
+  else {
+    long t2 = millis();
+    long dureePression = t2 - t1Rouge;
+    if (mode == INIT && dureePression > 50) {  // Passe directement en CFG si on presse le bouton en INIT
+      mode = CFG;
+    }
+    else if (dureePression > 5000) {  // Passe en MNT ou retourne au mode précédent si appui long en dehors de INIT
+      if (mode == STD) {
+        mode_prec = STD;
+        mode = MNT;  // Passe au mode MNT si appui long en mode STD
+      }
+      else if (mode == ECO) {
+        mode_prec = ECO;
+        mode = MNT;  // Passe également au mode MNT depuis ECO avec appui long
+      }
+      else if (mode == MNT) {
+        mode = mode_prec;  // Retourne au mode précédent après MNT
+        mode_prec = INIT;  // Réinitialise pour éviter les conflits futurs
+      }
+    }
+    etatBoutonR = HIGH;
+    t1Rouge = 0;
   }
 }
 
@@ -103,29 +156,28 @@ void Recup_data(){
   if (rtc.lostPower()) {
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Réglez à l'heure de compilation
   }
-  if (gpsSerial.available()) {
-    String nmea = "";
-    
-    // Lire les données disponibles du GPS
-    while (gpsSerial.available()) {
-      char c = gpsSerial.read();
-      nmea += c;
+
+  // Vérification GPS, attente de données GPS sur 5 cycles avant signalement d'erreur
+  bool gpsTrouve = false;
+  for (int i = 0; i < 5; i++) {
+    if (gpsSerial.available()) {
+      String nmea = "";
       
-      // Vérifier si une trame NMEA valide commence par '$'
-      if (nmea.startsWith("$")) {
-        Serial.println("Trame NMEA détectée : " + nmea);
-        
-        // Si la trame commence par GPGGA, alors c'est valide
-        if (nmea.startsWith("$GPGGA")) {
-          Serial.println("GPS présent et fonctionnel");
-        } else {
-          Serial.println("GPS présent mais pas encore de trame GPGGA");
+      while (gpsSerial.available()) {
+        char c = gpsSerial.read();
+        nmea += c;
+
+        if (nmea.startsWith("$GPGGA")) {  // Filtre les trames GPS valides
+          gpsTrouve = true;
+          break;
         }
-        nmea = "";  // Réinitialiser la chaîne pour la prochaine lecture
       }
+      if (gpsTrouve) break;
     }
-  } else {
-    error = GPS_ERROR;
+    delay(100);  // Pause pour laisser le GPS répondre
+  }
+  if (!gpsTrouve) {
+    error = GPS_ERROR;  // Pas de trame GPS détectée après 5 cycles
   }
 
   //Vérification présence capteur
@@ -195,26 +247,24 @@ void Recup_data(){
 }
 
 void standard(){
-  mode = STD;
   Recup_data();
   led();
   delay(1000);
 }
 
 void economique(){
-  mode = ECO;
   Recup_data();
   led();
   delay(2000);
 }
 
 void configuration(){
-  mode = CFG;
   led();
+  delay(10000);
+  standard();
 }
 
 void maintenance(){
-  mode = MNT;
   led();
 }
 
@@ -240,9 +290,24 @@ void setup() {
   } else {
     error = WRITE_ERROR;
   }
+
+  mode = INIT;
+
+  leds.setColorRGB(0, 0, 0, 0);
+
+  startTime = millis();
+
+  attachInterrupt(digitalPinToInterrupt(boutonRougePin), BoutonRouge, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(boutonVertPin), Boutonvert, CHANGE);
+  delay(5000);
 }
 
 void loop() {
+  // Vérifie si le mode est toujours INIT et si 5 secondes se sont écoulées sans appui du bouton
+  if (mode == INIT && millis() - startTime > 5000) {
+    mode = STD;  // Passe en mode STD après 5 secondes si le bouton rouge n'est pas pressé
+  }
+
   switch (mode){
     case STD : standard();
     break;
@@ -252,4 +317,5 @@ void loop() {
     break;
     case MNT : maintenance();
     break;
+  }
 }
