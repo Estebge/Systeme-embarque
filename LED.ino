@@ -157,27 +157,20 @@ void Recup_data(){
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Réglez à l'heure de compilation
   }
 
-  // Vérification GPS, attente de données GPS sur 5 cycles avant signalement d'erreur
-  bool gpsTrouve = false;
-  for (int i = 0; i < 5; i++) {
-    if (gpsSerial.available()) {
-      String nmea = "";
+ // Vérification de la présence de trames GPS
+  if (gpsSerial.available()) {
+    String nmea = "";
+    while (gpsSerial.available()) {
+      char c = gpsSerial.read();
+      nmea += c;
       
-      while (gpsSerial.available()) {
-        char c = gpsSerial.read();
-        nmea += c;
-
-        if (nmea.startsWith("$GPGGA")) {  // Filtre les trames GPS valides
-          gpsTrouve = true;
-          break;
-        }
+      if (c == '\n') { // Si on détecte une fin de trame (nouvelle ligne)
+        Serial.println("Trame GPS détectée : " + nmea);  // Affiche la trame pour vérification
+        nmea = "";  // Réinitialise la chaîne pour la prochaine lecture
       }
-      if (gpsTrouve) break;
     }
-    delay(100);  // Pause pour laisser le GPS répondre
-  }
-  if (!gpsTrouve) {
-    error = GPS_ERROR;  // Pas de trame GPS détectée après 5 cycles
+  } else {
+    error = GPS_ERROR;  // Définit une erreur si aucune trame n'est disponible
   }
 
   //Vérification présence capteur
@@ -218,6 +211,26 @@ void Recup_data(){
   //   }
   // }
 
+    // Initialisation de la carte SD
+  if (!SD.begin(SD_CS_PIN)) {
+    error = DATA_ERROR;
+  }
+  Serial.println("Carte SD initialisée avec succès.");
+
+  // Vérifie d'abord si le fichier existe déjà
+  if (!SD.exists("data.csv")) {
+    dataFile = SD.open("data.csv", FILE_WRITE); // Crée le fichier s'il n'existe pas
+    if (dataFile) {
+      Serial.println("Fichier créé avec succès.");
+      dataFile.println(F("Date;Heure;Temp;Press;Hum;Lum;GPS")); // Écrit les en-têtes
+      dataFile.close();
+    } else {
+      error = WRITE_ERROR;  // Indique une erreur d'écriture
+    }
+  } else {
+    Serial.println("Fichier déjà présent, aucun besoin de le recréer.");
+  }
+
   // Récupérer la date et l'heure actuelles du RTC
   DateTime now = rtc.now();
 
@@ -244,23 +257,23 @@ void Recup_data(){
   } else {
     error = DATA_ERROR;
   }
-}
-
-void standard(){
-  Recup_data();
-  led();
   delay(1000);
 }
 
-void economique(){
-  Recup_data();
+void standard(){
   led();
-  delay(2000);
+  Recup_data();
+}
+
+void economique(){
+  led();
+  Recup_data();
 }
 
 void configuration(){
   led();
   delay(10000);
+  mode = STD;
   standard();
 }
 
@@ -274,22 +287,6 @@ void setup() {
   pinMode(boutonVertPin, INPUT_PULLUP);
   gpsSerial.begin(9600);
   Wire.begin();
-
-  // Initialisation de la carte SD
-  if (!SD.begin(SD_CS_PIN)) {
-    error = DATA_ERROR;
-  }
-  Serial.println("Carte SD initialisée avec succès.");
-
-  // Création du fichier CSV s'il n'existe pas
-  dataFile = SD.open("data.csv", FILE_WRITE);
-  if (dataFile) {
-    Serial.println("Fichier ouvert avec succès.");
-    dataFile.println(F("Date;Heure;Temp;Press;Hum;Lum;GPS"));
-    dataFile.close();
-  } else {
-    error = WRITE_ERROR;
-  }
 
   mode = INIT;
 
