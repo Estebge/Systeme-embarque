@@ -1,3 +1,4 @@
+//Appel des bibliothèque pour les capteurs, la carte SD, le GPS, ...
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
@@ -6,11 +7,14 @@
 #include <ChainableLED.h>
 #include <SoftwareSerial.h>
 
+//Initialisation des boutons
 #define boutonRougePin 3
 #define boutonVertPin  2
 
+//Initailisation de la LED
 ChainableLED leds(5, 6, 1);
 
+//Initialisation données pour les capteurs
 #define SEALEVELPRESSURE_HPA (1013.25)  // Pression au niveau de la mer standard
 #define lightSensorPin A0
 #define SD_CS_PIN 4  // Pin CS pour la carte SD
@@ -31,6 +35,7 @@ ChainableLED leds(5, 6, 1);
 #define CFG 3
 #define MNT 4
 
+//Initialisation variables globales.
 uint8_t error;
 uint8_t mode;
 uint8_t mode_prec;
@@ -41,12 +46,14 @@ uint8_t etatBoutonR = HIGH;
 uint8_t etatBoutonV = HIGH;
 long t1Vert, t1Rouge;
 
-SoftwareSerial gpsSerial(3, 4);  // Créer un port série logiciel pour le GPS
+SoftwareSerial gpsSerial(8, 9);  // Créer un port série logiciel pour le GPS
 
 Adafruit_BME280 bme;
 RTC_DS3231 rtc;
 File dataFile;
 
+//Fonction LED
+//Permet de changer la couleur de la LED en fonction des erreur ou du mode
 void led(){
   switch (error){
     case RTC_ERROR : leds.setColorRGB(0, 255, 0, 0);
@@ -94,6 +101,8 @@ void led(){
   }
 }
 
+//Fonction du bouton vert
+//Permet de changer d'un mode à l'autre grâce à la pression du bouton vert
 void Boutonvert()
 {
   if (etatBoutonV == HIGH) {
@@ -116,6 +125,7 @@ void Boutonvert()
   }
 }
 
+//Pareil que le bouton vert mais avec le rouge
 void BoutonRouge(){
   if (etatBoutonR == HIGH) {
     t1Rouge = millis();
@@ -146,6 +156,9 @@ void BoutonRouge(){
   }
 }
 
+//Fonction permettant de récupérer les données
+//Permet de vérifier qu'un capteur ou autre soit branchés
+//Permet de récupérer et stocker les données s'il n'y a aucun problème
 void Recup_data(){
   error = NO_ERROR;
   //Vérification présence horloge
@@ -178,6 +191,8 @@ void Recup_data(){
     error = CAP_ERROR;
   }
   
+  // Les lignes ci dessous sont à tester lorsque nous sommes dans des conditions parfaites pour utiliser le GPS (dehors, avec des satellites disponible de sûr)
+
   // Lire une ligne complète de NMEA
   // while (Serial.available()) {
   //   char c = Serial.read();
@@ -260,6 +275,8 @@ void Recup_data(){
   delay(1000);
 }
 
+//Déclaration des différents mode et de leur action
+//Par exemple ce mode appel la fonction LED pour avoir la couleur du mode puis nous stockons les données
 void standard(){
   led();
   Recup_data();
@@ -281,8 +298,10 @@ void maintenance(){
   led();
 }
 
+//Fonction qui se lit une fois et permet d'initialiser le programme
+//Per exemple c'est ici que nous initialisons la communication avec l'ordi ou que nous initialisons le mode des boutons
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(9600);   //Communication avec l'interface
   pinMode(boutonRougePin, INPUT_PULLUP);
   pinMode(boutonVertPin, INPUT_PULLUP);
   gpsSerial.begin(9600);
@@ -299,6 +318,8 @@ void setup() {
   delay(5000);
 }
 
+//Enfin ce code se fait en permanence
+//Il permet de passer d'un mode à l'autre via les fonctions vu précédemment
 void loop() {
   // Vérifie si le mode est toujours INIT et si 5 secondes se sont écoulées sans appui du bouton
   if (mode == INIT && millis() - startTime > 5000) {
