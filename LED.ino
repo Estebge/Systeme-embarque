@@ -59,6 +59,7 @@ String inputString = "";
 
 // Définition des adresses dans l'EEPROM
 int ADDR_LOG_INTERVAL = 0;
+int ADDR_LOG_INTERVAL_ECO = 0;
 #define ADDR_TIMEOUT 2
 #define ADDR_LUMIN 3
 #define ADDR_LUMIN_LOW 4
@@ -75,6 +76,7 @@ int ADDR_LOG_INTERVAL = 0;
 
 // Définition des valeurs par défaut
 int DEFAULT_LOG_INTERVAL = 1000;
+int DEFAULT_LOG_INTERVAL_ECO = 0;
 #define DEFAULT_TIMEOUT 30
 #define DEFAULT_LUMIN 1
 #define DEFAULT_LUMIN_LOW 255
@@ -279,14 +281,12 @@ void Recup_data(){
   } else {
     error = GPS_ERROR;  // Définit une erreur si aucune trame n'est disponible
   }
-  delay(100);
 
 
   //Vérification présence capteur
   if (!bme.begin(0x76)){
     error = CAP_ERROR;
   }
-  delay(100);
 
   
   // Les lignes ci dessous sont à tester lorsque nous sommes dans des conditions parfaites pour utiliser le GPS (dehors, avec des satellites disponible de sûr)
@@ -329,7 +329,6 @@ void Recup_data(){
     error = DATA_ERROR;
   }
   Serial.println(F("Carte OK"));
-  delay(100);
 
   // Vérifie d'abord si le fichier existe déjà
   if (!SD.exists("data.csv")) {
@@ -344,24 +343,20 @@ void Recup_data(){
   } else {
     Serial.println(F("Fichier déjà présent"));
   }
-  delay(100);
 
   //Vérification présence horloge
   if (!rtc.begin()) {
     error = RTC_ERROR;
   }
-  delay(100);
   
   if (rtc.lostPower()) {
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Réglez à l'heure de compilation
   }
-  delay(100);
 
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   // Récupérer la date et l'heure actuelles du RTC
   DateTime now = rtc.now();
-  delay(100);
 
   // if (bme.readTemperature() < minTempAir || bme.readTemperature() > maxTempAir || bme.readPressure() < pressureMin || bme.readPressure() > pressureMax || bme.readHumidity() < hygrMint || bme.readHumidity() > hygrMaxt || (analogRead(lightSensorPin) / 1023.0) * 100) < luminLow || (analogRead(lightSensorPin) / 1023.0) * 100) > luminHigh){
   //   error = VAL_ERROR;
@@ -388,13 +383,9 @@ void Recup_data(){
 
     // Écriture des données capteurs
     dataFile.print(bme.readTemperature()); dataFile.print("C;");
-    delay(100);
     dataFile.print(bme.readPressure() / 100.0F); dataFile.print(" hPa;");
-    delay(100);
     dataFile.print(bme.readHumidity()); dataFile.print("%;");
-    delay(100);
     dataFile.print((analogRead(lightSensorPin) / 1023.0) * 100); dataFile.print("%;");
-    delay(100);
     dataFile.print("43"); dataFile.write(176); dataFile.print("28'52.4\"N; ");
     dataFile.print("5"); dataFile.write(176); dataFile.println("23'11.0\"E; ");
 
@@ -402,11 +393,18 @@ void Recup_data(){
   } else {
     error = DATA_ERROR;
   }
-  if (ADDR_LOG_INTERVAL != 0){
-    delay(ADDR_LOG_INTERVAL);
-  }
-  else{
-    delay(DEFAULT_LOG_INTERVAL);
+  if (mode == STD){
+    if (ADDR_LOG_INTERVAL != 0){
+      delay(ADDR_LOG_INTERVAL);
+    } else{
+      delay(DEFAULT_LOG_INTERVAL);
+    }
+  } else {
+    if (ADDR_LOG_INTERVAL_ECO != 0){
+      delay(ADDR_LOG_INTERVAL_ECO);
+    } else{
+      delay(DEFAULT_LOG_INTERVAL_ECO);
+    }
   }
 }
 
@@ -421,8 +419,8 @@ void standard(){
 
 void economique(){
   led();
-  ADDR_LOG_INTERVAL *= 2;
-  DEFAULT_LOG_INTERVAL *= 2;
+  ADDR_LOG_INTERVAL_ECO = ADDR_LOG_INTERVAL * 2;
+  DEFAULT_LOG_INTERVAL_ECO = DEFAULT_LOG_INTERVAL * 2;
   Recup_data();
 }
 
@@ -435,6 +433,7 @@ void configuration(){
       inputString = Serial.readStringUntil('\n');
       inputString.trim(); // Enlever les espaces inutiles ou retour à la ligne
       processCommand(inputString);
+      test = 0;
     }
   }
   mode = STD;
