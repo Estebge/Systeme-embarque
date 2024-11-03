@@ -336,7 +336,7 @@ void Recup_data(){
     dataFile = SD.open("data.csv", FILE_WRITE); // Crée le fichier s'il n'existe pas
     if (dataFile) {
       Serial.println(F("Fichier créé"));
-      dataFile.println(F("Date;Heure;Temp;Press;Hum;Lum")); // Écrit les en-têtes
+      dataFile.println(F("Date;Heure;Temp;Press;Hum;Lum;Lat;Long")); // Écrit les en-têtes
       dataFile.close();
     } else {
       error = WRITE_ERROR;  // Indique une erreur d'écriture
@@ -356,6 +356,8 @@ void Recup_data(){
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Réglez à l'heure de compilation
   }
   delay(100);
+
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   // Récupérer la date et l'heure actuelles du RTC
   DateTime now = rtc.now();
@@ -391,8 +393,10 @@ void Recup_data(){
     delay(100);
     dataFile.print(bme.readHumidity()); dataFile.print("%;");
     delay(100);
-    dataFile.print((analogRead(lightSensorPin) / 1023.0) * 100); dataFile.println("%");
+    dataFile.print((analogRead(lightSensorPin) / 1023.0) * 100); dataFile.print("%;");
     delay(100);
+    dataFile.print("43"); dataFile.write(176); dataFile.print("28'52.4\"N; ");
+    dataFile.print("5"); dataFile.write(176); dataFile.println("23'11.0\"E; ");
 
     dataFile.close();  // Fermer le fichier pour sauvegarder les données
   } else {
