@@ -59,7 +59,6 @@ String inputString = "";
 
 // Définition des adresses dans l'EEPROM
 int ADDR_LOG_INTERVAL = 0;
-int ADDR_LOG_INTERVAL_ECO = 0;
 #define ADDR_TIMEOUT 2
 #define ADDR_LUMIN 3
 #define ADDR_LUMIN_LOW 4
@@ -76,7 +75,6 @@ int ADDR_LOG_INTERVAL_ECO = 0;
 
 // Définition des valeurs par défaut
 int DEFAULT_LOG_INTERVAL = 1000;
-int DEFAULT_LOG_INTERVAL_ECO = 0;
 #define DEFAULT_TIMEOUT 30
 #define DEFAULT_LUMIN 1
 #define DEFAULT_LUMIN_LOW 255
@@ -400,10 +398,10 @@ void Recup_data(){
       delay(DEFAULT_LOG_INTERVAL);
     }
   } else {
-    if (ADDR_LOG_INTERVAL_ECO != 0){
-      delay(ADDR_LOG_INTERVAL_ECO);
+    if (ADDR_LOG_INTERVAL != 0){
+      delay(ADDR_LOG_INTERVAL*2);
     } else{
-      delay(DEFAULT_LOG_INTERVAL_ECO);
+      delay(DEFAULT_LOG_INTERVAL*2);
     }
   }
 }
@@ -412,15 +410,11 @@ void Recup_data(){
 //Par exemple ce mode appel la fonction LED pour avoir la couleur du mode puis nous stockons les données
 void standard(){
   led();
-  ADDR_LOG_INTERVAL *= 2;
-  DEFAULT_LOG_INTERVAL *= 2;
   Recup_data();
 }
 
 void economique(){
   led();
-  ADDR_LOG_INTERVAL_ECO = ADDR_LOG_INTERVAL * 2;
-  DEFAULT_LOG_INTERVAL_ECO = DEFAULT_LOG_INTERVAL * 2;
   Recup_data();
 }
 
