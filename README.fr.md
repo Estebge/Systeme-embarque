@@ -204,8 +204,8 @@ Le sujet prévoyait d'intégrer par la suite quatre modules tiers — températu
 ### 1. Cloner le dépôt
 
 ```bash
-git clone https://github.com/Estebge/Systeme_embarque.git
-cd Systeme_embarque
+git clone https://github.com/Estebge/Systeme-embarque.git
+cd Systeme-embarque
 ```
 
 ### 2. Installer les dépendances
@@ -340,7 +340,7 @@ Relevés lors de la relecture pour cette publication. **Ils n'ont volontairement
 ## 📁 Structure du dépôt
 
 ```
-Systeme_embarque/
+Systeme-embarque/
 ├── README.md                  ← anglais
 ├── README.fr.md               ← français
 ├── StationMeteo/
@@ -368,10 +368,8 @@ Les diagrammes UML proviennent du **Livrable 1 – Analyse du système** (septem
 
 Projet réalisé au **CESI** (2024-2025) par :
 
-- **Estéban BÉGUÉ**
-- **Trystan**
-- **Maxime**
-- **Yanis**
-- **Rayene**
-
-*Les quatre autres membres de l'équipe ont souhaité n'apparaître que par leur prénom.*
+- **Estéban** : https://github.com/Estebge
+- **Trystan** : https://github.com/trystanbouzonrueda
+- **Maxime** : https://github.com/haguetm
+- **Yanis** : https://github.com/yyyanis
+- **Rayene** : https://github.com/rayene00

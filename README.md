@@ -204,8 +204,8 @@ The brief planned for four third-party modules to be integrated later — water 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Estebge/Systeme_embarque.git
-cd Systeme_embarque
+git clone https://github.com/Estebge/Systeme-embarque.git
+cd Systeme-embarque
 ```
 
 ### 2. Install the dependencies
@@ -340,7 +340,7 @@ Found while re-reading the code for this publication. **They have deliberately n
 ## 📁 Repository layout
 
 ```
-Systeme_embarque/
+Systeme-embarque/
 ├── README.md                  ← English
 ├── README.fr.md               ← French
 ├── StationMeteo/
@@ -368,10 +368,8 @@ The UML diagrams come from **Deliverable 1 – System analysis** (September 2024
 
 Project carried out at **CESI** (2024-2025) by:
 
-- **Estéban BÉGUÉ**
-- **Trystan**
-- **Maxime**
-- **Yanis**
-- **Rayene**
-
-*The four other team members chose to be credited by first name only.*
+- **Estéban** : https://github.com/Estebge
+- **Trystan** : https://github.com/trystanbouzonrueda
+- **Maxime** : https://github.com/haguetm
+- **Yanis** : https://github.com/yyyanis
+- **Rayene** : https://github.com/rayene00
